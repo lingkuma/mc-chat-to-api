@@ -11,6 +11,11 @@ import org.tywrapstudios.ctd.discord.webhook.WebhookConnector;
 import org.tywrapstudios.ctd.platform.CTDServices;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
@@ -80,9 +85,12 @@ public class Discord {
                     }
                 })
                 .exec();
+        sendToCustomUrl(chatMessage, playerName, UUID);
     }
 
     public static void sendEmbedToDiscord(String chatMessage, String playerName, String webhookUrl, String UUID, int embedColor) {
+        // For embeds, we send the raw chat message to the custom URL, not the embed content.
+        sendToCustomUrl(chatMessage, playerName, UUID);
         Footer footer = new Footer(playerName+": "+chatMessage,"https://mc-heads.net/avatar/"+UUID+"/90");
         Embed embed = new Embed()
                 .setColor(embedColor)
@@ -160,5 +168,69 @@ public class Discord {
     public static void logFailure(String chatMessage, int statusCode, String errorMessage, String playerName, String UUID) {
         CTDCommon.LOGGING.warn(String.format("Message \"%s\" by %s[%s] failed to send. ", chatMessage, playerName, UUID));
         CTDCommon.LOGGING.warn(String.format("Code: %s Error: %s", statusCode, errorMessage));
+    }
+
+    private static void sendToCustomUrl(String chatMessage, String playerName, String uuid) {
+        if (!CTDCommon.CONFIG_MANAGER.getConfig().chat_post_config.enable_chat_posting ||
+                CTDCommon.CONFIG_MANAGER.getConfig().chat_post_config.chat_post_url == null ||
+                CTDCommon.CONFIG_MANAGER.getConfig().chat_post_config.chat_post_url.isEmpty()) {
+            return;
+        }
+
+        String targetUrlString = CTDCommon.CONFIG_MANAGER.getConfig().chat_post_config.chat_post_url;
+        String postFormat = CTDCommon.CONFIG_MANAGER.getConfig().chat_post_config.chat_post_format;
+
+        try {
+            // Replace placeholders in the post format
+            String requestBody = postFormat
+                    .replace("{text}", chatMessage)
+                    .replace("{playerName}", playerName != null ? playerName : "UnknownPlayer")
+                    .replace("{uuid}", uuid != null ? uuid : "UnknownUUID");
+
+            // If the target URL does not contain "?", we assume it's a POST request
+            // or a GET request where parameters will be added if it's the default "{text}" format.
+            // For simplicity with the original request "http://127.0.0.1:2333/api/translate?text=聊天内容"
+            // we will primarily support GET for simple text, and POST for formatted text.
+
+            HttpURLConnection connection = null;
+            URL url;
+
+            // Check if the user specifically wants to append 'text' as a query param for GET
+            // This is a common simple use case.
+            if (!targetUrlString.contains("?") && postFormat.equals("{\"text\": \"{text}\"}")) { // Default GET-like scenario
+                 url = new URL(targetUrlString + "?text=" + URLEncoder.encode(chatMessage, StandardCharsets.UTF_8.name()));
+                 connection = (HttpURLConnection) url.openConnection();
+                 connection.setRequestMethod("GET");
+            } else if (targetUrlString.toLowerCase().startsWith("http://") || targetUrlString.toLowerCase().startsWith("https://")) {
+                // Assumed POST for more complex formats or if URL already has query params
+                url = new URL(targetUrlString);
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("POST");
+                connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8"); // Assume JSON for POST
+                if (postFormat.equals("{text}")) { // Plain text POST
+                    connection.setRequestProperty("Content-Type", "text/plain; charset=UTF-8");
+                }
+                connection.setDoOutput(true);
+                try (OutputStream os = connection.getOutputStream()) {
+                    byte[] input = requestBody.getBytes(StandardCharsets.UTF_8);
+                    os.write(input, 0, input.length);
+                }
+            } else {
+                CTDCommon.LOGGING.warn("[Custom URL] Invalid URL specified: " + targetUrlString);
+                return;
+            }
+
+            int responseCode = connection.getResponseCode();
+            if (responseCode >= 200 && responseCode < 300) {
+                CTDCommon.LOGGING.debug(String.format("[Custom URL] Successfully sent message to %s. Response code: %d", targetUrlString, responseCode));
+            } else {
+                CTDCommon.LOGGING.warn(String.format("[Custom URL] Failed to send message to %s. Response code: %d, Message: %s", targetUrlString, responseCode, connection.getResponseMessage()));
+            }
+            connection.disconnect();
+
+        } catch (Exception e) {
+            CTDCommon.LOGGING.error("[Custom URL] Error sending message: " + e.getMessage());
+            // e.printStackTrace(); // Optionally print stack trace for more detailed debugging
+        }
     }
 }
