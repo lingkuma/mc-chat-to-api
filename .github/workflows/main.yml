@@ -5,7 +5,9 @@ jobs:
   build:
     strategy:
       matrix:
-        java: [ 21 ]
+        # NeoForge 可能对 Java 版本有特定要求，通常是 17 或 21
+        # 请根据您的项目进行调整
+        java: [ 21 ] 
     runs-on: ubuntu-22.04
     steps:
       - name: checkout repository
@@ -23,21 +25,22 @@ jobs:
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
 
-      # ================== 关键修改在这里 ==================
-      - name: Build with ShadowJar
-        # 使用 shadowJar 命令来创建包含所有依赖的最终插件文件
-        run: ./gradlew shadowJar
-      # ==================================================
+      # ================== 关键步骤 ==================
+      - name: Build with Gradle for NeoForge
+        # 对于 NeoForge, 标准的 'build' 命令会完成所有必要的打包工作
+        run: ./gradlew build
+      # ============================================
 
       - name: Check build output
+        if: always() # 保持这个调试步骤，以防万一
         run: |
           echo "Listing files in the build directory..."
           ls -R build
 
       - name: capture build artifacts
-        if: ${{ matrix.java == '21' }}
         uses: actions/upload-artifact@v4
         with:
           name: Artifacts
-          # shadowJar 的输出目录通常也是 build/libs
-          path: build/libs/*.jar
+          # NeoForge 也会将最终可用的 mod 文件放在 build/libs/ 目录下
+          # 这个通配符会上传主要的 jar 文件，并排除源码和开发版本
+          path: build/libs/!(*-sources|*-dev).jar
