@@ -68,7 +68,7 @@ But that's not all this mod does! It has a few other features that other mods li
 ---
 ### Extra info:
 > [!IMPORTANT]
-> It is suggested to completely whitelist the Webhook for your Auto-Moderation bots.  
+> It is suggested to completely whitelist the Webhook for your Auto-Moderation bots.   
 > Why whitelist? For starters, most bots will flag it as "spamming" since the player name is always included in the message, and thus repeated a few times, whitelisting the Webhook solves the hassle of having to remake it every time your bot deletes it.
 
 > [!NOTE]
