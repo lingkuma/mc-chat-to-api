@@ -46,6 +46,20 @@ But that's not all this mod does! It has a few other features that other mods li
     "debug_mode": false,
     // Whether to suppress all warnings from this mod. NOT RECOMMENDED.
     "suppress_warns": false
+  },
+  // All configurations for posting chat messages to a custom URL.
+  "chat_post_config": {
+    // Enable posting chat messages to a custom URL.
+    "enable_chat_posting": false,
+    // The custom URL to post chat messages to.
+    // The chat message will be URL encoded and appended as a query parameter `text` if you use GET.
+    // For POST, ensure your server can handle the `chat_post_format`.
+    "chat_post_url": "",
+    // The format for the POST request body. Use {text} for the chat message, {playerName} for player name, and {uuid} for player UUID.
+    // Example: {"message": "{text}", "player": "{playerName}"}
+    // If you intend to send as plain text via POST, you might set this to just "{text}" and ensure your server expects plain text.
+    // For GET requests, this field is not used for constructing the URL, but can be used by your server if you send it as a separate header or parameter.
+    "chat_post_format": "{\"text\": \"{text}\"}"
   }
 }
 ```
@@ -59,3 +73,5 @@ But that's not all this mod does! It has a few other features that other mods li
 
 > [!NOTE]
 > CTD is published under the TYSPAL Licence, which can be viewed [here](./LICENSE).
+
+action test
